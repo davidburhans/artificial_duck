@@ -3,7 +3,12 @@ import sys
 import argparse
 
 from . import repo
-from .ollama import prepare_request, send_request, format_files_for_llm
+from .ollama import (
+    prepare_request,
+    send_request,
+    format_files_for_llm,
+    calculate_system_tokens,
+)
 import glob
 
 files_to_exclude = ["package-lock.json", "license.md"]
@@ -36,8 +41,11 @@ def chat_about(
     content: str, about: str = "", single_query: str = "", count_only: bool = False
 ):
     context = []
+    system_token_count = calculate_system_tokens(content)
     if single_query is not None and len(single_query) > 0:
-        count, request_data = prepare_request(single_query, content, context)
+        count, request_data = prepare_request(
+            single_query, content, context, system_token_count
+        )
         if count_only:
             print(f"{count} tokens")
         response_data = send_request(request_data)
@@ -48,7 +56,9 @@ def chat_about(
         if query.startswith("?"):
             print(content)
         else:
-            count, request_data = prepare_request(query, content, context)
+            count, request_data = prepare_request(
+                query, content, context, system_token_count
+            )
             if count_only:
                 print(f"{count} tokens")
             else:

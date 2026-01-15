@@ -31,18 +31,33 @@ def format_files_for_llm(files: list[str], root_dir: str = ""):
     return content
 
 
-def prepare_request(question: str, content: str, context: list[int]):
+def _build_system_prompt(content: str) -> str:
+    return f"""{system_prompt}
+        {content}"""
+
+
+def calculate_system_tokens(content: str) -> int:
+    system = _build_system_prompt(content)
+    return len(encoding.encode(system))
+
+
+def prepare_request(
+    question: str,
+    content: str,
+    context: list[int],
+    system_token_count: int | None = None,
+):
     request_data = dict(
         context=context,
         model=model,
         prompt=question,
         stream=False,
-        system=f"""{system_prompt}
-        {content}""",
+        system=_build_system_prompt(content),
     )
-    token_count = len(encoding.encode(request_data["prompt"])) + len(
-        encoding.encode(request_data["system"])
-    )
+    if system_token_count is None:
+        system_token_count = len(encoding.encode(request_data["system"]))
+
+    token_count = len(encoding.encode(request_data["prompt"])) + system_token_count
     return (
         token_count,
         request_data,
