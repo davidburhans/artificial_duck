@@ -24,11 +24,10 @@ def read_file(filepath: str, root_dir: str):
 
 
 def format_files_for_llm(files: list[str], root_dir: str = ""):
-    content = ""
-    for file_name in files:
-        content = f"""{content}
-{read_file(file_name, root_dir)}"""
-    return content
+    if not files:
+        return ""
+    # Optimization: Use join instead of string concatenation to avoid O(N^2) copying
+    return "\n" + "\n".join(read_file(file_name, root_dir) for file_name in files)
 
 
 def prepare_request(question: str, content: str, context: list[int]):
