@@ -4,7 +4,6 @@ import argparse
 
 from . import repo
 from .ollama import prepare_request, send_request, format_files_for_llm
-import glob
 
 files_to_exclude = ["package-lock.json", "license.md"]
 exts_to_exclude = [".pyc", ".lock"]
@@ -70,8 +69,24 @@ def chat_about_directory(path: str, about: str = "", single_query: str = "", cou
     if about == "":
         about = path
     root_dir = path + os.path.sep
-    itr = glob.iglob(os.path.join(path, "**"), recursive=True)
-    files_in_dir = [f for f in itr if not should_exclude_path(f)]
+
+    files_in_dir = []
+    # Directories to prune if encountered to avoid unnecessary traversal
+    prune_dirs = {'node_modules', 'venv', '__pycache__'}
+
+    for root, dirs, files in os.walk(path):
+        # Prune hidden directories and ignored directories in-place
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in prune_dirs]
+
+        for file in files:
+            # Skip hidden files
+            if file.startswith('.'):
+                continue
+
+            full_path = os.path.join(root, file)
+            if not should_exclude_path(full_path):
+                files_in_dir.append(full_path)
+
     content = format_files_for_llm(files_in_dir, root_dir)
     chat_about(content, about=about, single_query=single_query, count_only=count_only)
 
