@@ -9,7 +9,6 @@ from .ollama import (
     format_files_for_llm,
     calculate_system_tokens,
 )
-import glob
 
 files_to_exclude = ["package-lock.json", "license.md"]
 exts_to_exclude = [".pyc", ".lock"]
@@ -80,8 +79,21 @@ def chat_about_directory(path: str, about: str = "", single_query: str = "", cou
     if about == "":
         about = path
     root_dir = path + os.path.sep
-    itr = glob.iglob(os.path.join(path, "**"), recursive=True)
-    files_in_dir = [f for f in itr if not should_exclude_path(f)]
+
+    # Optimization: Use os.walk with pruning instead of glob.iglob
+    # This prevents traversing into excluded directories like node_modules
+    files_in_dir = []
+    exclude_dirs = {"node_modules", "venv", "__pycache__", ".git"}
+
+    for root, dirs, files in os.walk(path):
+        # Prune directories in-place
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+        for file in files:
+            full_path = os.path.join(root, file)
+            if not should_exclude_path(full_path):
+                files_in_dir.append(full_path)
+
     content = format_files_for_llm(files_in_dir, root_dir)
     chat_about(content, about=about, single_query=single_query, count_only=count_only)
 
