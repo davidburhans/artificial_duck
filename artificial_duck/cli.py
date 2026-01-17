@@ -8,6 +8,7 @@ from .ollama import (
     send_request,
     format_files_for_llm,
     calculate_system_tokens,
+    build_system_prompt,
 )
 
 files_to_exclude = ["package-lock.json", "license.md"]
@@ -40,10 +41,11 @@ def chat_about(
     content: str, about: str = "", single_query: str = "", count_only: bool = False
 ):
     context = []
-    system_token_count = calculate_system_tokens(content)
+    system_prompt = build_system_prompt(content)
+    system_token_count = calculate_system_tokens(content, system_prompt=system_prompt)
     if single_query is not None and len(single_query) > 0:
         count, request_data = prepare_request(
-            single_query, content, context, system_token_count
+            single_query, content, context, system_token_count, system_prompt=system_prompt
         )
         if count_only:
             print(f"{count} tokens")
@@ -56,7 +58,7 @@ def chat_about(
             print(content)
         else:
             count, request_data = prepare_request(
-                query, content, context, system_token_count
+                query, content, context, system_token_count, system_prompt=system_prompt
             )
             if count_only:
                 print(f"{count} tokens")

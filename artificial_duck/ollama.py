@@ -30,14 +30,15 @@ def format_files_for_llm(files: list[str], root_dir: str = ""):
     return "\n" + "\n".join(read_file(file_name, root_dir) for file_name in files)
 
 
-def _build_system_prompt(content: str) -> str:
+def build_system_prompt(content: str) -> str:
     return f"""{system_prompt}
         {content}"""
 
 
-def calculate_system_tokens(content: str) -> int:
-    system = _build_system_prompt(content)
-    return len(encoding.encode(system))
+def calculate_system_tokens(content: str, system_prompt: str | None = None) -> int:
+    if system_prompt is None:
+        system_prompt = build_system_prompt(content)
+    return len(encoding.encode(system_prompt))
 
 
 def prepare_request(
@@ -45,13 +46,17 @@ def prepare_request(
     content: str,
     context: list[int],
     system_token_count: int | None = None,
+    system_prompt: str | None = None,
 ):
+    if system_prompt is None:
+        system_prompt = build_system_prompt(content)
+
     request_data = dict(
         context=context,
         model=model,
         prompt=question,
         stream=False,
-        system=_build_system_prompt(content),
+        system=system_prompt,
     )
     if system_token_count is None:
         system_token_count = len(encoding.encode(request_data["system"]))
