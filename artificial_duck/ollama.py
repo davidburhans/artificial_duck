@@ -24,10 +24,9 @@ def read_file(filepath: str, root_dir: str):
 
 
 def format_files_for_llm(files: list[str], root_dir: str = ""):
-    if not files:
-        return ""
-    # Optimization: Use join instead of string concatenation to avoid O(N^2) copying
-    return "\n" + "\n".join(read_file(file_name, root_dir) for file_name in files)
+    # Use list comprehension and join for O(n) performance instead of O(n^2) string concatenation
+    parts = [read_file(file_name, root_dir) for file_name in files]
+    return "\n" + "\n".join(parts) if parts else ""
 
 
 def build_system_prompt(content: str) -> str:
