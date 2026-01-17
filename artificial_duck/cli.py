@@ -3,8 +3,13 @@ import sys
 import argparse
 
 from . import repo
-from .ollama import prepare_request, send_request, format_files_for_llm
-import glob
+from .ollama import (
+    prepare_request,
+    send_request,
+    format_files_for_llm,
+    calculate_system_tokens,
+    build_system_prompt,
+)
 
 files_to_exclude = ["package-lock.json", "license.md"]
 exts_to_exclude = [".pyc", ".lock"]
@@ -36,8 +41,12 @@ def chat_about(
     content: str, about: str = "", single_query: str = "", count_only: bool = False
 ):
     context = []
+    system_prompt = build_system_prompt(content)
+    system_token_count = calculate_system_tokens(content, system_prompt=system_prompt)
     if single_query is not None and len(single_query) > 0:
-        count, request_data = prepare_request(single_query, content, context)
+        count, request_data = prepare_request(
+            single_query, content, context, system_token_count, system_prompt=system_prompt
+        )
         if count_only:
             print(f"{count} tokens")
         response_data = send_request(request_data)
@@ -48,7 +57,9 @@ def chat_about(
         if query.startswith("?"):
             print(content)
         else:
-            count, request_data = prepare_request(query, content, context)
+            count, request_data = prepare_request(
+                query, content, context, system_token_count, system_prompt=system_prompt
+            )
             if count_only:
                 print(f"{count} tokens")
             else:
@@ -70,8 +81,21 @@ def chat_about_directory(path: str, about: str = "", single_query: str = "", cou
     if about == "":
         about = path
     root_dir = path + os.path.sep
-    itr = glob.iglob(os.path.join(path, "**"), recursive=True)
-    files_in_dir = [f for f in itr if not should_exclude_path(f)]
+
+    # Optimization: Use os.walk with pruning instead of glob.iglob
+    # This prevents traversing into excluded directories like node_modules
+    files_in_dir = []
+    exclude_dirs = {"node_modules", "venv", "__pycache__", ".git"}
+
+    for root, dirs, files in os.walk(path):
+        # Prune directories in-place
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+        for file in files:
+            full_path = os.path.join(root, file)
+            if not should_exclude_path(full_path):
+                files_in_dir.append(full_path)
+
     content = format_files_for_llm(files_in_dir, root_dir)
     chat_about(content, about=about, single_query=single_query, count_only=count_only)
 
