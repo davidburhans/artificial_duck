@@ -13,16 +13,28 @@ from .ollama import (
 
 files_to_exclude = ["package-lock.json", "license.md"]
 exts_to_exclude = [".pyc", ".lock"]
+# Pre-calculate sets for O(1) lookup
+files_to_exclude_set = {f.lower() for f in files_to_exclude}
+exts_to_exclude_set = {e.lower() for e in exts_to_exclude}
+
+
+def should_exclude_file(filename: str) -> bool:
+    if filename.lower() in files_to_exclude_set:
+        return True
+    _, ext = os.path.splitext(filename)
+    if ext.lower() in exts_to_exclude_set:
+        return True
+    return False
 
 
 def should_exclude_path(path: str):
     if os.path.isdir(path):
         return True
-    elif os.path.splitext(path)[1].lower() in exts_to_exclude:
+
+    if should_exclude_file(os.path.basename(path)):
         return True
-    elif os.path.basename(path).lower() in files_to_exclude:
-        return True
-    elif "/venv/" in path or "__pycache__" in path:
+
+    if "/venv/" in path or "__pycache__" in path:
         return True
     elif "/node_modules/" in path:
         return True
@@ -92,9 +104,13 @@ def chat_about_directory(path: str, about: str = "", single_query: str = "", cou
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
         for file in files:
+            if should_exclude_file(file):
+                continue
+
+            # Skip redundant should_exclude_path checks (isdir, path containment)
+            # as os.walk returns files (non-directory entries) and we prune excluded directories
             full_path = os.path.join(root, file)
-            if not should_exclude_path(full_path):
-                files_in_dir.append(full_path)
+            files_in_dir.append(full_path)
 
     content = format_files_for_llm(files_in_dir, root_dir)
     chat_about(content, about=about, single_query=single_query, count_only=count_only)
