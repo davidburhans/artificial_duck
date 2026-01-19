@@ -11,14 +11,14 @@ from .ollama import (
     build_system_prompt,
 )
 
-files_to_exclude = ["package-lock.json", "license.md"]
-exts_to_exclude = [".pyc", ".lock"]
+files_to_exclude = {"package-lock.json", "license.md"}
+exts_to_exclude = {".pyc", ".lock"}
 
 
 def should_exclude_path(path: str):
-    if os.path.isdir(path):
-        return True
-    elif os.path.splitext(path)[1].lower() in exts_to_exclude:
+    # Optimization: os.path.isdir check removed as it's redundant when used with os.walk files
+    # and causes unnecessary stat calls.
+    if os.path.splitext(path)[1].lower() in exts_to_exclude:
         return True
     elif os.path.basename(path).lower() in files_to_exclude:
         return True
