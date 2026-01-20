@@ -11,16 +11,25 @@ from .ollama import (
     build_system_prompt,
 )
 
-files_to_exclude = ["package-lock.json", "license.md"]
-exts_to_exclude = [".pyc", ".lock"]
+files_to_exclude = {"package-lock.json", "license.md"}
+exts_to_exclude = {".pyc", ".lock"}
 
 
-def should_exclude_path(path: str):
-    if os.path.isdir(path):
+def should_exclude_path(path: str, basename: str | None = None):
+    """
+    Checks if a path should be excluded.
+
+    Optimization details:
+    - Accepts optional 'basename' to avoid redundant os.path.basename calls.
+    - Does not check os.path.isdir() to avoid expensive syscalls; assumes caller handles directories.
+    - Uses sets for O(1) lookup.
+    """
+    if basename is None:
+        basename = os.path.basename(path)
+
+    if os.path.splitext(basename)[1].lower() in exts_to_exclude:
         return True
-    elif os.path.splitext(path)[1].lower() in exts_to_exclude:
-        return True
-    elif os.path.basename(path).lower() in files_to_exclude:
+    elif basename.lower() in files_to_exclude:
         return True
     elif "/venv/" in path or "__pycache__" in path:
         return True
@@ -93,7 +102,7 @@ def chat_about_directory(path: str, about: str = "", single_query: str = "", cou
 
         for file in files:
             full_path = os.path.join(root, file)
-            if not should_exclude_path(full_path):
+            if not should_exclude_path(full_path, basename=file):
                 files_in_dir.append(full_path)
 
     content = format_files_for_llm(files_in_dir, root_dir)
